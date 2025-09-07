@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'profile_screen.dart';
+import 'chat_screen.dart';
+import 'matches_screen.dart';
+import 'settings_screen.dart';
+import 'notification_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({Key? key}) : super(key: key);
@@ -11,11 +16,9 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
   int _selectedIndex = 0;
   double _cardOffsetX = 0;
   double _cardRotation = 0;
-  bool _isDragging = false;
   bool _showLike = false;
   bool _showDislike = false;
   bool _showStar = false;
-  bool _showProfileDialog = false;
   late AnimationController _animController;
   late Animation<double> _animOffsetX;
   late Animation<double> _animRotation;
@@ -81,9 +84,6 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
   }
 
   void _showProfileSummary() {
-    setState(() {
-      _showProfileDialog = true;
-    });
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -143,11 +143,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
           ),
         ),
       ),
-    ).then((_) {
-      setState(() {
-        _showProfileDialog = false;
-      });
-    });
+    );
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
@@ -179,120 +175,140 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
         title: const Text('Matcha', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w500)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.notifications, color: Colors.black),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationScreen()),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.settings, color: Colors.black),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
           ),
         ],
         centerTitle: false,
       ),
-      body: Center(
-        child: Container(
-          width: 380,
-          child: Column(
-            children: [
-              const SizedBox(height: 16),
-              GestureDetector(
-                onTap: _showProfileSummary,
-                onPanUpdate: _onPanUpdate,
-                onPanEnd: _onPanEnd,
-                child: Transform.translate(
-                  offset: Offset(_cardOffsetX, 0),
-                  child: Transform.rotate(
-                    angle: _cardRotation,
-                    child: Stack(
-                      children: [
-                        Card(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                          elevation: 8,
-                          margin: EdgeInsets.zero,
-                          child: Container(
-                            width: double.infinity,
-                            height: 480,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(24),
-                              image: DecorationImage(
-                                // Ensure this asset exists and is declared in pubspec.yaml
-                                image: const AssetImage('assets/profilepic.jpg'),
-                                onError: (exception, stackTrace) {},
-                                fit: BoxFit.cover,
-                              ),
-                              // If you want a fallback, you can add a color or a background image here
-                            ),
-                            child: Stack(
-                              children: [
-                                Positioned(
-                                  left: 16,
-                                  bottom: 24,
-                                  right: 16,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: const [
-                                          Text('Linh', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                                          SizedBox(width: 8),
-                                          Text('25', style: TextStyle(color: Colors.white, fontSize: 20)),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Wrap(
-                                        spacing: 8,
-                                        children: const [
-                                          _HobbyChip(label: 'Du lịch'),
-                                          _HobbyChip(label: 'Âm thực'),
-                                          _HobbyChip(label: 'Phim ảnh'),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: const [
-                                          Icon(Icons.location_on, color: Color(0xFFFF4B91), size: 18),
-                                          SizedBox(width: 4),
-                                          Text('2km', style: TextStyle(color: Colors.white)),
-                                        ],
-                                      ),
-                                    ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Main Card Area
+            Expanded(
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 380),
+                  margin: const EdgeInsets.all(16),
+                  child: GestureDetector(
+                    onTap: _showProfileSummary,
+                    onPanUpdate: _onPanUpdate,
+                    onPanEnd: _onPanEnd,
+                    child: Transform.translate(
+                      offset: Offset(_cardOffsetX, 0),
+                      child: Transform.rotate(
+                        angle: _cardRotation,
+                        child: Stack(
+                          children: [
+                            Card(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                              elevation: 8,
+                              margin: EdgeInsets.zero,
+                              child: Container(
+                                width: double.infinity,
+                                height: 480,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(24),
+                                  image: DecorationImage(
+                                    image: const AssetImage('assets/profilepic.jpg'),
+                                    onError: (exception, stackTrace) {},
+                                    fit: BoxFit.cover,
                                   ),
                                 ),
-                                if (_showLike)
-                                  Positioned(
-                                    top: 40,
-                                    right: 30,
-                                    child: AnimatedOpacity(
-                                      opacity: _showLike ? 1 : 0,
-                                      duration: const Duration(milliseconds: 200),
-                                      child: _ActionLabel(label: 'LIKE', color: Colors.green),
+                                child: Stack(
+                                  children: [
+                                    Positioned(
+                                      left: 16,
+                                      bottom: 24,
+                                      right: 16,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: const [
+                                              Text('Linh', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                                              SizedBox(width: 8),
+                                              Text('25', style: TextStyle(color: Colors.white, fontSize: 20)),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Wrap(
+                                            spacing: 8,
+                                            children: const [
+                                              _HobbyChip(label: 'Du lịch'),
+                                              _HobbyChip(label: 'Âm thực'),
+                                              _HobbyChip(label: 'Phim ảnh'),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: const [
+                                              Icon(Icons.location_on, color: Color(0xFFFF4B91), size: 18),
+                                              SizedBox(width: 4),
+                                              Text('2km', style: TextStyle(color: Colors.white)),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                if (_showDislike)
-                                  Positioned(
-                                    top: 40,
-                                    left: 30,
-                                    child: AnimatedOpacity(
-                                      opacity: _showDislike ? 1 : 0,
-                                      duration: const Duration(milliseconds: 200),
-                                      child: _ActionLabel(label: 'NOPE', color: Colors.red),
-                                    ),
-                                  ),
-                                if (_showStar)
-                                  Center(
-                                    child: AnimatedScale(
-                                      scale: _showStar ? 1.2 : 0.0,
-                                      duration: const Duration(milliseconds: 300),
-                                      child: Icon(Icons.star, color: Colors.yellow, size: 80),
-                                    ),
-                                  ),
-                              ],
+                                    if (_showLike)
+                                      Positioned(
+                                        top: 40,
+                                        right: 30,
+                                        child: AnimatedOpacity(
+                                          opacity: _showLike ? 1 : 0,
+                                          duration: const Duration(milliseconds: 200),
+                                          child: _ActionLabel(label: 'LIKE', color: Colors.green),
+                                        ),
+                                      ),
+                                    if (_showDislike)
+                                      Positioned(
+                                        top: 40,
+                                        left: 30,
+                                        child: AnimatedOpacity(
+                                          opacity: _showDislike ? 1 : 0,
+                                          duration: const Duration(milliseconds: 200),
+                                          child: _ActionLabel(label: 'NOPE', color: Colors.red),
+                                        ),
+                                      ),
+                                    if (_showStar)
+                                      Center(
+                                        child: AnimatedScale(
+                                          scale: _showStar ? 1.2 : 0.0,
+                                          duration: const Duration(milliseconds: 300),
+                                          child: Icon(Icons.star, color: Colors.yellow, size: 80),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
-              Row(
+            ),
+            // Action Buttons
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _CircleButton(
@@ -315,17 +331,46 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
+        type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
           });
+          
+          // Navigate to different screens based on index
+          switch (index) {
+            case 0:
+              // Stay on current screen (Discovery/Main)
+              break;
+            case 1:
+              // Navigate to Matches
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const MatchesScreen()),
+              );
+              break;
+            case 2:
+              // Navigate to Chat
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ChatScreen()),
+              );
+              break;
+            case 3:
+              // Navigate to Profile
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              );
+              break;
+          }
         },
         selectedItemColor: const Color(0xFFFF4B91),
         unselectedItemColor: Colors.black,
@@ -335,6 +380,10 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
           BottomNavigationBarItem(
             icon: Icon(Icons.favorite_border),
             label: 'Khám phá',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.flash_on),
+            label: 'Kết đôi',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.chat_bubble_outline),
