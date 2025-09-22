@@ -1,9 +1,21 @@
 import 'package:flutter/material.dart';
-import 'profile_screen.dart';
-import 'chat_screen.dart';
-import 'matches_screen.dart';
 import 'settings_screen.dart';
 import 'notification_screen.dart';
+
+// Color scheme constants
+class AppColors {
+  static const Color primary = Color(0xFFFF4B91);
+  static const Color primaryLight = Color(0xFFFFE4F1);
+  static const Color secondary = Color(0xFF6C5CE7);
+  static const Color background = Color(0xFFF8F9FA);
+  static const Color surface = Colors.white;
+  static const Color textPrimary = Color(0xFF2D3436);
+  static const Color textSecondary = Color(0xFF636E72);
+  static const Color success = Color(0xFF00B894);
+  static const Color warning = Color(0xFFFDCB6E);
+  static const Color error = Color(0xFFE17055);
+  static const Color pastelPink = Color(0xFFFF4B91);
+}
 
 class MainScreen extends StatefulWidget {
   const MainScreen({Key? key}) : super(key: key);
@@ -13,7 +25,6 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateMixin {
-  int _selectedIndex = 0;
   double _cardOffsetX = 0;
   double _cardRotation = 0;
   bool _showLike = false;
@@ -168,14 +179,41 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F6),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         elevation: 0,
-        title: const Text('Matcha', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w500)),
+        title: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.pastelPink,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.favorite, color: Colors.white, size: 18),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Matcha',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+              ),
+            ),
+          ],
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications, color: Colors.black),
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.notifications_outlined, color: AppColors.primary, size: 24),
             onPressed: () {
               Navigator.push(
                 context,
@@ -183,14 +221,22 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.black),
+          ),
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.settings_outlined, color: AppColors.primary, size: 24),
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const SettingsScreen()),
               );
             },
+            ),
           ),
         ],
         centerTitle: false,
@@ -215,51 +261,173 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
                         child: Stack(
                           children: [
                             Card(
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                              elevation: 8,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                              elevation: 12,
                               margin: EdgeInsets.zero,
+                              shadowColor: AppColors.primary.withValues(alpha: 0.2),
                               child: Container(
                                 width: double.infinity,
-                                height: 480,
+                                height: 520,
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(24),
+                                  borderRadius: BorderRadius.circular(28),
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Color(0xFF667eea),
+                                      Color(0xFF764ba2),
+                                    ],
+                                  ),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    // Background pattern
+                                    Positioned.fill(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(28),
                                   image: DecorationImage(
                                     image: const AssetImage('assets/profilepic.jpg'),
                                     onError: (exception, stackTrace) {},
                                     fit: BoxFit.cover,
                                   ),
                                 ),
-                                child: Stack(
-                                  children: [
+                                      ),
+                                    ),
+                                    // Gradient overlay
+                                    Positioned.fill(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(28),
+                                          gradient: LinearGradient(
+                                            begin: Alignment.topCenter,
+                                            end: Alignment.bottomCenter,
+                                            colors: [
+                                              Colors.transparent,
+                                              Colors.black.withValues(alpha: 0.3),
+                                              Colors.black.withValues(alpha: 0.7),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    // Content
                                     Positioned(
                                       left: 16,
-                                      bottom: 24,
+                                      bottom: 20,
                                       right: 16,
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
                                         children: [
+                                          // Name, age and compatibility score
                                           Row(
-                                            children: const [
-                                              Text('Linh', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                                              SizedBox(width: 8),
-                                              Text('25', style: TextStyle(color: Colors.white, fontSize: 20)),
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Flexible(
+                                                          child: Text(
+                                                            'Linh',
+                                                            style: TextStyle(
+                                                              color: Colors.white,
+                                                              fontSize: 24,
+                                                              fontWeight: FontWeight.bold,
+                                                              shadows: [
+                                                                Shadow(
+                                                                  color: Colors.black.withValues(alpha: 0.3),
+                                                                  offset: const Offset(0, 1),
+                                                                  blurRadius: 2,
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 6),
+                                                        Text(
+                                                          '25',
+                                                          style: TextStyle(
+                                                            color: Colors.white.withValues(alpha: 0.9),
+                                                            fontSize: 20,
+                                                            fontWeight: FontWeight.w500,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 3),
+                                                    Row(
+                                                      children: [
+                                                        Icon(
+                                                          Icons.location_on,
+                                                          color: AppColors.primary,
+                                                          size: 16,
+                                                        ),
+                                                        const SizedBox(width: 4),
+                                                        Flexible(
+                                                          child: Text(
+                                                            '2km từ bạn',
+                                                            style: TextStyle(
+                                                              color: Colors.white.withValues(alpha: 0.9),
+                                                              fontSize: 14,
+                                                              fontWeight: FontWeight.w500,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              // Compatibility score badge
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.primary,
+                                                  borderRadius: BorderRadius.circular(16),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: AppColors.primary.withValues(alpha: 0.3),
+                                                      blurRadius: 6,
+                                                      offset: const Offset(0, 2),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(
+                                                      Icons.favorite,
+                                                      color: Colors.white,
+                                                      size: 14,
+                                                    ),
+                                                    const SizedBox(width: 3),
+                                                    const Text(
+                                                      '92%',
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 14,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
                                             ],
                                           ),
-                                          const SizedBox(height: 8),
+                                          const SizedBox(height: 12),
+                                          // Hobbies
                                           Wrap(
-                                            spacing: 8,
+                                            spacing: 6,
+                                            runSpacing: 6,
                                             children: const [
                                               _HobbyChip(label: 'Du lịch'),
                                               _HobbyChip(label: 'Âm thực'),
                                               _HobbyChip(label: 'Phim ảnh'),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: const [
-                                              Icon(Icons.location_on, color: Color(0xFFFF4B91), size: 18),
-                                              SizedBox(width: 4),
-                                              Text('2km', style: TextStyle(color: Colors.white)),
                                             ],
                                           ),
                                         ],
@@ -307,93 +475,36 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
             ),
             // Action Buttons
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _CircleButton(
-                    icon: Icons.close,
+                    icon: Icons.close_rounded,
                     color: Colors.white,
-                    iconColor: Colors.black,
+                    iconColor: AppColors.error,
                     onTap: _onDislike,
+                    size: 64,
                   ),
                   _CircleButton(
-                    icon: Icons.star,
-                    color: Color(0xFF1877F3),
+                    icon: Icons.star_rounded,
+                    color: AppColors.warning,
                     iconColor: Colors.white,
                     onTap: _onStar,
+                    size: 56,
                   ),
                   _CircleButton(
-                    icon: Icons.favorite,
-                    color: Color(0xFF22C55E),
+                    icon: Icons.favorite_rounded,
+                    color: AppColors.success,
                     iconColor: Colors.white,
                     onTap: _onLike,
+                    size: 64,
                   ),
                 ],
               ),
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-          
-          // Navigate to different screens based on index
-          switch (index) {
-            case 0:
-              // Stay on current screen (Discovery/Main)
-              break;
-            case 1:
-              // Navigate to Matches
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const MatchesScreen()),
-              );
-              break;
-            case 2:
-              // Navigate to Chat
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ChatScreen()),
-              );
-              break;
-            case 3:
-              // Navigate to Profile
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfileScreen()),
-              );
-              break;
-          }
-        },
-        selectedItemColor: const Color(0xFFFF4B91),
-        unselectedItemColor: Colors.black,
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border),
-            label: 'Khám phá',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.flash_on),
-            label: 'Kết đôi',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: 'Tin nhắn',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Hồ sơ',
-          ),
-        ],
       ),
     );
   }
@@ -406,43 +517,112 @@ class _HobbyChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white, width: 0.5),
+        color: Colors.white.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
-      child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 13)),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
 
-class _CircleButton extends StatelessWidget {
+class _CircleButton extends StatefulWidget {
   final IconData icon;
   final Color color;
   final Color iconColor;
   final VoidCallback onTap;
-  const _CircleButton({required this.icon, required this.color, required this.iconColor, required this.onTap});
+  final double size;
+  const _CircleButton({
+    required this.icon,
+    required this.color,
+    required this.iconColor,
+    required this.onTap,
+    this.size = 60,
+  });
+
+  @override
+  State<_CircleButton> createState() => _CircleButtonState();
+}
+
+class _CircleButtonState extends State<_CircleButton> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTapDown: (_) => _animationController.forward(),
+      onTapUp: (_) {
+        _animationController.reverse();
+        widget.onTap();
+      },
+      onTapCancel: () => _animationController.reverse(),
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
       child: Container(
-        width: 60,
-        height: 60,
+              width: widget.size,
+              height: widget.size,
         decoration: BoxDecoration(
-          color: color,
+                color: widget.color,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+                    color: widget.color.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: Icon(icon, color: iconColor, size: 32),
+              child: Icon(
+                widget.icon,
+                color: widget.iconColor,
+                size: widget.size * 0.4,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -456,19 +636,33 @@ class _ActionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
         border: Border.all(color: color, width: 3),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(16),
+        color: Colors.white.withValues(alpha: 0.9),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Text(
         label,
         style: TextStyle(
           color: color,
           fontWeight: FontWeight.bold,
-          fontSize: 22,
+          fontSize: 24,
           letterSpacing: 2,
+          shadows: [
+            Shadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              offset: const Offset(0, 1),
+              blurRadius: 2,
+            ),
+          ],
         ),
       ),
     );
@@ -482,13 +676,20 @@ class _ProfileHobbyChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Color(0xFFF6F6F6),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Color(0xFFE0E0E0), width: 1),
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 1),
       ),
-      child: Text(label, style: const TextStyle(color: Colors.black87, fontSize: 13)),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.primary,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

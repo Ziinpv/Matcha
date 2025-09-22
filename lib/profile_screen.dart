@@ -33,10 +33,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
         centerTitle: false,
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
             // Profile Header
             Container(
               width: double.infinity,
@@ -435,8 +434,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            ],
-          ),
+          ],
         ),
       ),
     );

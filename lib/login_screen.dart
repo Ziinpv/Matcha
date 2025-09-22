@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'register_screen.dart';
-import 'main_screen.dart';
+import 'main_tab_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -15,7 +15,7 @@ class LoginScreen extends StatelessWidget {
             width: 380,
             padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 32),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.0),
+              color: Colors.white.withValues(alpha: 0.0),
               borderRadius: BorderRadius.circular(32),
             ),
             child: Column(
@@ -106,7 +106,7 @@ class LoginScreen extends StatelessWidget {
                     onPressed: () {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => const MainScreen()),
+                        MaterialPageRoute(builder: (context) => const MainTabScreen()),
                       );
                     },
                     style: ElevatedButton.styleFrom(

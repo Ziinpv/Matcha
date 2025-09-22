@@ -35,7 +35,21 @@ class _BlocklistScreenState extends State<BlocklistScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -54,15 +68,7 @@ class _BlocklistScreenState extends State<BlocklistScreen> {
       ),
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFF4B91),
-              Color(0xFFFDEFF3),
-            ],
-            stops: [0.0, 0.3],
-          ),
+          color: Color(0xFFFDEFF3),
         ),
         child: Column(
           children: [
