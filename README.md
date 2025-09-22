@@ -1,16 +1,26 @@
-# dating_app
+# Matcha Monorepo
 
-A new Flutter project.
+- `frontend/` – Flutter app (Android, iOS, Web)
+- `backend/` – Node.js + Express + Firebase Admin
+- `docs/` – Project documentation
 
-## Getting Started
+## Quick Start
 
-This project is a starting point for a Flutter application.
+### Backend
+1) Create `.env` in `backend/` and fill: `PORT`, `JWT_SECRET`, `FIREBASE_CREDENTIALS`, `FIREBASE_STORAGE_BUCKET`
+2) Install and run:
+```
+cd backend
+npm install
+npm run dev
+```
+Health: http://localhost:4000/health
 
-A few resources to get you started if this is your first Flutter project:
+### Frontend
+```
+cd frontend
+flutter pub get
+flutter run
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+See `docs/` for more details.
