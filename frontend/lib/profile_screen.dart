@@ -8,6 +8,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../services/auth_service.dart';
 import '../services/cloudinary_service.dart';
+import '../services/media_service.dart';
+import '../models/media_model.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -20,6 +22,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
   final CloudinaryService _cloudinary = CloudinaryService();
+  final MediaService _mediaService = MediaService();
 
   final _nameCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
@@ -55,10 +58,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _bioCtrl.text = data['bio'] ?? '';
         _locationCtrl.text = data['location'] ?? '';
         if (data['interests'] != null && data['interests'] is List) {
-          _interestsCtrl.text = (data['interests'] as List).map((e) => e.toString()).join(', ');
+          _interestsCtrl.text = (data['interests'] as List)
+              .map((e) => e.toString())
+              .join(', ');
         }
-        _gender = (data['gender'] as String?)?.isNotEmpty == true ? data['gender'] : null;
-        _avatarUrl = (data['avatar_url'] as String?)?.isNotEmpty == true ? data['avatar_url'] : null;
+        _gender = (data['gender'] as String?)?.isNotEmpty == true
+            ? data['gender']
+            : null;
+        _avatarUrl = (data['avatar_url'] as String?)?.isNotEmpty == true
+            ? data['avatar_url']
+            : null;
         if (data['birthdate'] != null && data['birthdate'] is Timestamp) {
           _birthdate = (data['birthdate'] as Timestamp).toDate();
         }
@@ -80,7 +89,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _avatarUrl = user?.photoURL;
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi load profile: $e")));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Lỗi load profile: $e")));
     } finally {
       setState(() {
         _loading = false;
@@ -88,9 +98,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // ===============================
+  // 📸 Upload avatar + Lưu media
+  // ===============================
   Future<void> _pickImageAndUpload() async {
     try {
-      final XFile? picked = await _picker.pickImage(source: ImageSource.gallery, maxWidth: 1200);
+      final XFile? picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1200,
+      );
       if (picked == null) return;
       setState(() => _uploadingImage = true);
 
@@ -99,12 +115,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (url != null) {
         setState(() => _avatarUrl = url);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload ảnh thành công')));
+
+        // 🔹 Lưu vào Firestore collection "media"
+        final mediaId =
+            FirebaseFirestore.instance.collection('media').doc().id;
+        final media = MediaModel(
+          mediaId: mediaId,
+          userId: _uid,
+          url: url,
+          type: 'image',
+          uploadedAt: DateTime.now(),
+        );
+        await _mediaService.addMedia(media);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Upload ảnh thành công')),
+        );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload ảnh thất bại')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Upload ảnh thất bại')),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi upload: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Lỗi upload: $e')));
     } finally {
       setState(() => _uploadingImage = false);
     }
@@ -126,7 +160,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _saveProfile() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng nhập tên')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vui lòng nhập tên')));
       return;
     }
 
@@ -164,7 +199,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       setState(() => _isEditing = false);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi lưu hồ sơ: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Lỗi lưu hồ sơ: $e')));
     } finally {
       setState(() => _loading = false);
     }
@@ -178,8 +214,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         CircleAvatar(
           radius: 56,
           backgroundColor: Colors.grey[200],
-          backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
-          child: avatar == null || avatar.isEmpty ? const Icon(Icons.person, size: 56, color: Colors.grey) : null,
+          backgroundImage:
+          avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
+          child: avatar == null || avatar.isEmpty
+              ? const Icon(Icons.person, size: 56, color: Colors.grey)
+              : null,
         ),
         if (_isEditing)
           Positioned(
@@ -189,9 +228,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: _uploadingImage ? null : _pickImageAndUpload,
               child: Container(
                 padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                decoration: const BoxDecoration(
+                    color: Colors.white, shape: BoxShape.circle),
                 child: _uploadingImage
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.camera_alt, size: 18),
               ),
             ),
@@ -216,10 +259,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Hồ sơ của tôi', style: TextStyle(color: Colors.black)),
+        title:
+        const Text('Hồ sơ của tôi', style: TextStyle(color: Colors.black)),
         actions: [
           IconButton(
-            icon: Icon(_isEditing ? Icons.check : Icons.edit, color: Colors.black),
+            icon: Icon(_isEditing ? Icons.check : Icons.edit,
+                color: Colors.black),
             onPressed: () {
               if (_isEditing) {
                 _saveProfile();
@@ -253,7 +298,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: TextFormField(
                       controller: _nameCtrl,
                       enabled: _isEditing,
-                      decoration: const InputDecoration(labelText: 'Họ và tên'),
+                      decoration:
+                      const InputDecoration(labelText: 'Họ và tên'),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -264,13 +310,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             value: _gender,
-                            decoration: const InputDecoration(labelText: 'Giới tính'),
+                            decoration: const InputDecoration(
+                                labelText: 'Giới tính'),
                             items: const [
-                              DropdownMenuItem(value: 'male', child: Text('Nam')),
-                              DropdownMenuItem(value: 'female', child: Text('Nữ')),
-                              DropdownMenuItem(value: 'other', child: Text('Khác')),
+                              DropdownMenuItem(
+                                  value: 'male', child: Text('Nam')),
+                              DropdownMenuItem(
+                                  value: 'female', child: Text('Nữ')),
+                              DropdownMenuItem(
+                                  value: 'other', child: Text('Khác')),
                             ],
-                            onChanged: _isEditing ? (v) => setState(() => _gender = v) : null,
+                            onChanged: _isEditing
+                                ? (v) => setState(() => _gender = v)
+                                : null,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -278,7 +330,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: InkWell(
                             onTap: _isEditing ? _chooseBirthDate : null,
                             child: InputDecorator(
-                              decoration: const InputDecoration(labelText: 'Ngày sinh'),
+                              decoration: const InputDecoration(
+                                  labelText: 'Ngày sinh'),
                               child: Text(
                                 _birthdate != null
                                     ? '${_birthdate!.day}/${_birthdate!.month}/${_birthdate!.year}'
@@ -296,7 +349,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: TextFormField(
                       controller: _locationCtrl,
                       enabled: _isEditing,
-                      decoration: const InputDecoration(labelText: 'Địa chỉ'),
+                      decoration:
+                      const InputDecoration(labelText: 'Địa chỉ'),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -317,13 +371,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       controller: _bioCtrl,
                       enabled: _isEditing,
                       maxLines: 3,
-                      decoration: const InputDecoration(labelText: 'Giới thiệu'),
+                      decoration:
+                      const InputDecoration(labelText: 'Giới thiệu'),
                     ),
                   ),
                   const SizedBox(height: 12),
                   if (_isEditing)
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      padding:
+                      const EdgeInsets.symmetric(horizontal: 16.0),
                       child: ElevatedButton.icon(
                         onPressed: _saveProfile,
                         icon: const Icon(Icons.save),
@@ -341,10 +397,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Cài đặt nhanh', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text('Cài đặt nhanh',
+                      style: TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
-                  _SettingsItem(icon: Icons.settings, title: 'Cài đặt chi tiết', onTap: () {}),
-                  _SettingsItem(icon: Icons.shield, title: 'An toàn & Bảo mật', onTap: () {}),
+                  _SettingsItem(
+                      icon: Icons.settings,
+                      title: 'Cài đặt chi tiết',
+                      onTap: () {}),
+                  _SettingsItem(
+                      icon: Icons.shield,
+                      title: 'An toàn & Bảo mật',
+                      onTap: () {}),
                   _SettingsItem(
                     icon: Icons.logout,
                     title: 'Đăng xuất',
@@ -354,7 +418,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       if (mounted) {
                         Navigator.pushAndRemoveUntil(
                           context,
-                          MaterialPageRoute(builder: (context) => const LoginScreen()),
+                          MaterialPageRoute(
+                              builder: (context) => const LoginScreen()),
                               (route) => false,
                         );
                       }
@@ -387,7 +452,10 @@ class _SettingsItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       leading: Icon(icon, color: textColor ?? Colors.black87),
-      title: Text(title, style: TextStyle(color: textColor ?? Colors.black87, fontWeight: FontWeight.w500)),
+      title: Text(title,
+          style: TextStyle(
+              color: textColor ?? Colors.black87,
+              fontWeight: FontWeight.w500)),
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: onTap,
       contentPadding: EdgeInsets.zero,
