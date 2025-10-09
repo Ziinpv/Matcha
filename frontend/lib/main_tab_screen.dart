@@ -26,7 +26,7 @@ class MainTabScreen extends StatefulWidget {
 }
 
 class _MainTabScreenState extends State<MainTabScreen> {
-  int _selectedIndex = 0;
+  int _selectedIndex = 3;
 
   final List<Widget> _screens = [
     const MainScreen(),

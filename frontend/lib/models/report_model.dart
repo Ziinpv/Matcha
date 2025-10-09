@@ -1,41 +1,47 @@
+// lib/models/report_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class Report {
+class ReportModel {
   final String reportId;
   final String reporterId;
   final String reportedId;
-  final String reason;
-  final String status;
-  final DateTime createdAt;
+  final String? reason;
+  final String? status; // pending, reviewed, banned
+  final DateTime? createdAt;
 
-  Report({
+  ReportModel({
     required this.reportId,
     required this.reporterId,
     required this.reportedId,
-    required this.reason,
-    required this.status,
-    required this.createdAt,
+    this.reason,
+    this.status,
+    this.createdAt,
   });
-
-  factory Report.fromMap(Map<String, dynamic> map) {
-    return Report(
-      reportId: map['report_id'],
-      reporterId: map['reporter_id'],
-      reportedId: map['reported_id'],
-      reason: map['reason'],
-      status: map['status'],
-      createdAt: (map['created_at'] as Timestamp).toDate(),
-    );
-  }
 
   Map<String, dynamic> toMap() {
     return {
       'report_id': reportId,
       'reporter_id': reporterId,
       'reported_id': reportedId,
-      'reason': reason,
-      'status': status,
-      'created_at': createdAt,
+      'reason': reason ?? '',
+      'status': status ?? 'pending',
+      'created_at': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
     };
+  }
+
+  factory ReportModel.fromMap(Map<String, dynamic> map) {
+    return ReportModel(
+      reportId: map['report_id'] ?? '',
+      reporterId: map['reporter_id'] ?? '',
+      reportedId: map['reported_id'] ?? '',
+      reason: (map['reason'] as String?)?.isNotEmpty == true ? map['reason'] : null,
+      status: (map['status'] as String?)?.isNotEmpty == true ? map['status'] : 'pending',
+      createdAt: map['created_at'] != null ? (map['created_at'] as Timestamp).toDate() : null,
+    );
+  }
+
+  factory ReportModel.fromSnapshot(DocumentSnapshot snap) {
+    final data = snap.data() as Map<String, dynamic>? ?? {};
+    return ReportModel.fromMap(data);
   }
 }

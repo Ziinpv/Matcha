@@ -20,6 +20,23 @@ class _SetPasswordScreenState extends State<SetPasswordScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  // Future<void> _setPassword() async {
+  //   setState(() => _loading = true);
+  //   try {
+  //     await _authService.setPasswordForCurrentUser(_passwordController.text.trim());
+  //
+  //     Navigator.pushReplacement(
+  //       context,
+  //       MaterialPageRoute(builder: (_) => const MainTabScreen()),
+  //     );
+  //   } catch (e) {
+  //     ScaffoldMessenger.of(context)
+  //         .showSnackBar(SnackBar(content: Text("Lỗi: $e")));
+  //   } finally {
+  //     setState(() => _loading = false);
+  //   }
+  // }
+
   @override
   Widget build(BuildContext context) {
     final User? user = FirebaseAuth.instance.currentUser;
@@ -69,10 +86,11 @@ class _SetPasswordScreenState extends State<SetPasswordScreen> {
                     return;
                   }
 
+                  // Sử dụng phương thức setPasswordForCurrentUser thay vì linkEmailPassword
                   setState(() => _loading = true);
 
                   try {
-                    await _authService.linkEmailPassword(user, pwd);
+                    //await _authService.setPasswordForCurrentUser(pwd);
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
@@ -81,6 +99,8 @@ class _SetPasswordScreenState extends State<SetPasswordScreen> {
                     );
                   } on FirebaseAuthException catch (e) {
                     _showError(e.message ?? "Đặt mật khẩu thất bại");
+                  } catch (e) {
+                    _showError("Lỗi: $e");
                   } finally {
                     setState(() => _loading = false);
                   }
