@@ -1,0 +1,91 @@
+# Priority: Build outputs (Windows fix)
+[Bb]uild/
+[Bb]in/
+[Oo]bj/
+*.dex
+*.apk
+*.aab
+*.ipa
+
+# Flutter/Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+.pubignore
+.flutter-plugins
+.flutter-plugins-dependencies
+.fvm/
+.coverage/
+coverage/
+
+# Android
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/gradle.properties
+android/.idea/
+
+# iOS
+ios/Pods/
+ios/Runner.xcworkspace/
+ios/Flutter/Flutter.podspec
+ios/.symlinks/
+ios/Flutter/App.framework/
+ios/Flutter/Flutter.framework/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/Runner/GeneratedPluginRegistrant.*
+ios/Runner.xcodeproj/project.xcworkspace/
+ios/Runner.xcodeproj/xcuserdata/
+
+# Firebase configs (NEVER COMMIT)
+frontend/android/app/google-services.json
+frontend/ios/Runner/GoogleService-Info.plist
+backend/serviceAccountKey.json
+*.key
+*.p12
+*.pem
+*.cer
+*-config.json
+*-key.json
+
+# Node.js
+backend/node_modules/
+backend/dist/
+backend/coverage/
+backend/.env
+backend/.env.*
+backend/npm-debug.log*
+backend/yarn-debug.log*
+backend/yarn-error.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# System
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Logs
+*.log
+logs/
+
+# Miscellaneous
+*.class
+*.pyc
+*.swp
+*.backup
+*.tmp
