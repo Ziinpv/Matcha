@@ -19,14 +19,17 @@ class AppColors {
 }
 
 class MainTabScreen extends StatefulWidget {
-  const MainTabScreen({Key? key}) : super(key: key);
+  final int initialIndex;
+  // const MainTabScreen({Key? key}) : super(key: key);
+  const MainTabScreen({Key? key, this.initialIndex = 0}) : super(key: key);
 
   @override
   State<MainTabScreen> createState() => _MainTabScreenState();
 }
 
 class _MainTabScreenState extends State<MainTabScreen> {
-  int _selectedIndex = 3;
+  // int _selectedIndex = 3;
+  late int _selectedIndex;
 
   final List<Widget> _screens = [
     const MainScreen(),
@@ -34,6 +37,15 @@ class _MainTabScreenState extends State<MainTabScreen> {
     const ChatScreen(),
     const ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // sử dụng initialIndex từ constructor (mặc định 0)
+    _selectedIndex = (widget.initialIndex >= 0 && widget.initialIndex < _screens.length)
+        ? widget.initialIndex
+        : 0;
+  }
 
 
   void _onTabTapped(int index) {

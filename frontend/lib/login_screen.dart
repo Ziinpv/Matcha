@@ -30,9 +30,15 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (user != null) {
+        final hasProfile = await _authService.userHasCompleteProfile(user.uid);
+
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const MainTabScreen()),
+          MaterialPageRoute(
+            builder: (_) => MainTabScreen(
+              initialIndex: hasProfile ? 0 : 3, // Nếu chưa có profile → tab Hồ sơ
+            ),
+          ),
         );
       }
     } on FirebaseAuthException catch (e) {
@@ -48,9 +54,15 @@ class _LoginScreenState extends State<LoginScreen> {
       final user = await _authService.signInWithGoogle();
 
       if (user != null) {
+        final hasProfile = await _authService.userHasCompleteProfile(user.uid);
+
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const MainTabScreen()),
+          MaterialPageRoute(
+            builder: (_) => MainTabScreen(
+              initialIndex: hasProfile ? 0 : 3,
+            ),
+          ),
         );
       } else {
         _showError("Đăng nhập Google bị hủy");

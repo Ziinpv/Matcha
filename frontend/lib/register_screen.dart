@@ -1,9 +1,7 @@
-// lib/screens/register_screen.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
-import 'profile_screen.dart';
 import 'main_tab_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -26,7 +24,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
-  void _register() async {
+  Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
 
     if (_passwordController.text != _confirmPasswordController.text) {
@@ -46,9 +44,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (user != null && mounted) {
+        // Kiểm tra xem user đã có hồ sơ hay chưa
+        final hasProfile = await _authService.userHasCompleteProfile(user.uid);
+
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const MainTabScreen()),
+          MaterialPageRoute(
+            builder: (_) => MainTabScreen(
+              initialIndex: hasProfile ? 0 : 3, // tab Hồ sơ nếu chưa hoàn thiện
+            ),
+          ),
         );
       }
     } on FirebaseAuthException catch (e) {
@@ -60,25 +65,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  void _loginWithGoogle() async {
+  Future<void> _loginWithGoogle() async {
     setState(() => _isLoading = true);
     try {
       final user = await _authService.signInWithGoogle();
 
       if (user != null && mounted) {
-        final hasPassword = user.providerData.any((p) => p.providerId == 'password');
+        final hasProfile = await _authService.userHasCompleteProfile(user.uid);
 
-        if (!hasPassword) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const MainTabScreen()),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const MainTabScreen()),
-          );
-        }
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MainTabScreen(
+              initialIndex: hasProfile ? 0 : 3,
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -217,7 +219,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           _obscurePassword ? Icons.visibility_off : Icons.visibility,
                           color: Colors.grey[400],
                         ),
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        onPressed: () =>
+                            setState(() => _obscurePassword = !_obscurePassword),
                       ),
                       hintText: 'Nhập mật khẩu',
                       filled: true,
@@ -252,10 +255,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       prefixIcon: Icon(Icons.lock_outline, color: Colors.grey[400]),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                          _obscureConfirmPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
                           color: Colors.grey[400],
                         ),
-                        onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                        onPressed: () => setState(() =>
+                        _obscureConfirmPassword = !_obscureConfirmPassword),
                       ),
                       hintText: 'Nhập lại mật khẩu',
                       filled: true,
@@ -283,7 +289,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        textStyle: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 18),
                       ),
                       child: _isLoading
                           ? const CircularProgressIndicator(
@@ -314,15 +321,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _isLoading ? null : _loginWithGoogle,
-                          icon: const Icon(Icons.g_mobiledata, color: Colors.black),
+                          icon:
+                          const Icon(Icons.g_mobiledata, color: Colors.black),
                           label: const Text("Google"),
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: _isLoading ? null : () {}, // TODO: tích hợp Facebook sau
-                          icon: const Icon(Icons.facebook, color: Color(0xFF1877F3)),
+                          onPressed: _isLoading ? null : () {},
+                          icon: const Icon(Icons.facebook,
+                              color: Color(0xFF1877F3)),
                           label: const Text("Facebook"),
                         ),
                       ),
@@ -342,13 +351,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             : () {
                           Navigator.pushReplacement(
                             context,
-                            MaterialPageRoute(builder: (context) => const LoginScreen()),
+                            MaterialPageRoute(
+                                builder: (context) => const LoginScreen()),
                           );
                         },
                         child: Text(
                           'Đăng nhập ngay',
                           style: TextStyle(
-                            color: _isLoading ? Colors.grey : const Color(0xFFFF4B91),
+                            color:
+                            _isLoading ? Colors.grey : const Color(0xFFFF4B91),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
