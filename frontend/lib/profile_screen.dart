@@ -1,15 +1,16 @@
 // lib/screens/profile_screen.dart
 import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/auth_service.dart';
+import '../services/user_service.dart';
 import '../services/cloudinary_service.dart';
 import '../services/media_service.dart';
 import '../models/media_model.dart';
+import '../models/user_model.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
   final CloudinaryService _cloudinary = CloudinaryService();
   final MediaService _mediaService = MediaService();
+  final UserService _userService = UserService();
 
   final _nameCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
@@ -44,62 +46,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserDoc();
+    _loadUserProfile();
   }
 
-  Future<void> _loadUserDoc() async {
+  Future<void> _loadUserProfile() async {
     setState(() => _loading = true);
     try {
-      final doc = FirebaseFirestore.instance.collection('users').doc(_uid);
-      final snap = await doc.get();
-      if (snap.exists) {
-        final data = snap.data()!;
-        _nameCtrl.text = data['name'] ?? '';
-        _bioCtrl.text = data['bio'] ?? '';
-        _locationCtrl.text = data['location'] ?? '';
-        if (data['interests'] != null && data['interests'] is List) {
-          _interestsCtrl.text = (data['interests'] as List)
-              .map((e) => e.toString())
-              .join(', ');
-        }
-        _gender = (data['gender'] as String?)?.isNotEmpty == true
-            ? data['gender']
-            : null;
-        _avatarUrl = (data['avatar_url'] as String?)?.isNotEmpty == true
-            ? data['avatar_url']
-            : null;
-        if (data['birthdate'] != null && data['birthdate'] is Timestamp) {
-          _birthdate = (data['birthdate'] as Timestamp).toDate();
-        }
+      final user = await _userService.getUserById(_uid);
+
+      if (user != null) {
+        _nameCtrl.text = user.name ?? '';
+        _bioCtrl.text = user.bio ?? '';
+        _locationCtrl.text = user.location ?? '';
+        _interestsCtrl.text = user.interests?.join(', ') ?? '';
+        _gender = user.gender?.isNotEmpty == true ? user.gender : null;
+        _avatarUrl = user.avatarUrl?.isNotEmpty == true ? user.avatarUrl : null;
+        _birthdate = user.birthdate;
       } else {
-        final user = FirebaseAuth.instance.currentUser;
-        await doc.set({
-          'user_id': _uid,
-          'email': _email,
-          'name': user?.displayName ?? '',
-          'avatar_url': user?.photoURL ?? '',
-          'location': '',
-          'bio': '',
-          'interests': [],
-          'gender': '',
-          'created_at': FieldValue.serverTimestamp(),
-          'role': 'user',
-        }, SetOptions(merge: true));
-        _nameCtrl.text = user?.displayName ?? '';
-        _avatarUrl = user?.photoURL;
+        // Nếu user chưa tồn tại → tạo mới
+        final current = FirebaseAuth.instance.currentUser;
+        await _userService.createUser(
+          UserModel(
+            uid: _uid,
+            email: _email,
+            name: current?.displayName ?? '',
+            avatarUrl: current?.photoURL ?? '',
+            location: '',
+            bio: '',
+            interests: [],
+            gender: '',
+            profileCompleted: false,
+            createdAt: DateTime.now(),
+          ),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Lỗi load profile: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Lỗi tải hồ sơ: $e')));
+      }
     } finally {
-      setState(() {
-        _loading = false;
-      });
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   // ===============================
-  // 📸 Upload avatar + Lưu media
+  // 📸 Upload avatar + lưu media
   // ===============================
   Future<void> _pickImageAndUpload() async {
     try {
@@ -116,9 +108,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (url != null) {
         setState(() => _avatarUrl = url);
 
-        // 🔹 Lưu vào Firestore collection "media"
-        final mediaId =
-            FirebaseFirestore.instance.collection('media').doc().id;
+        final mediaId = FirebaseFirestore.instance.collection('media').doc().id;
         final media = MediaModel(
           mediaId: mediaId,
           userId: _uid,
@@ -137,10 +127,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Lỗi upload: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Lỗi upload: $e')));
+      }
     } finally {
-      setState(() => _uploadingImage = false);
+      if (mounted) setState(() => _uploadingImage = false);
     }
   }
 
@@ -152,60 +144,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
       firstDate: DateTime(now.year - 90),
       lastDate: DateTime(now.year - 13),
     );
-    if (picked != null) {
-      setState(() => _birthdate = picked);
-    }
+    if (picked != null) setState(() => _birthdate = picked);
   }
 
+  // ===============================
+  // 💾 Lưu và hoàn thiện hồ sơ
+  // ===============================
   Future<void> _saveProfile() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vui lòng nhập tên')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Vui lòng nhập tên')));
       return;
     }
 
     setState(() => _loading = true);
-    try {
-      final doc = FirebaseFirestore.instance.collection('users').doc(_uid);
 
+    try {
       final interestsList = _interestsCtrl.text
           .split(',')
           .map((e) => e.trim())
           .where((e) => e.isNotEmpty)
           .toList();
 
-      final Map<String, dynamic> update = {
+      final update = {
         'name': name,
         'bio': _bioCtrl.text.trim(),
         'location': _locationCtrl.text.trim(),
         'interests': interestsList,
         'gender': _gender ?? '',
         'avatar_url': _avatarUrl ?? '',
-        'updated_at': FieldValue.serverTimestamp(),
       };
-
       if (_birthdate != null) {
-        update['birthdate'] = Timestamp.fromDate(_birthdate!);
+        update['birthdate'] = _birthdate as Object; // lưu DateTime trực tiếp
       }
 
-      await doc.set(update, SetOptions(merge: true));
+      // Kiểm tra hồ sơ đầy đủ → set profile_completed = true
+      final bool hasCompleteProfile =
+          name.isNotEmpty &&
+              _gender != null &&
+              _gender!.isNotEmpty &&
+              _birthdate != null &&
+              interestsList.isNotEmpty &&
+              _locationCtrl.text.trim().isNotEmpty;
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Đã lưu hồ sơ thành công")),
-        );
+      if (hasCompleteProfile) {
+        update['profile_completed'] = true;
       }
+
+      await _userService.updateUser(_uid, update);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              hasCompleteProfile ? 'Hồ sơ đã hoàn thiện!' : 'Đã lưu hồ sơ.'),
+        ),
+      );
 
       setState(() => _isEditing = false);
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Lỗi lưu hồ sơ: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Lỗi lưu hồ sơ: $e')));
+      }
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
+  // ===============================
+  // Avatar + UI
+  // ===============================
   Widget _buildAvatar() {
     final avatar = _avatarUrl;
     return Stack(
@@ -269,9 +278,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (_isEditing) {
                 _saveProfile();
               } else {
-                setState(() {
-                  _isEditing = true;
-                });
+                setState(() => _isEditing = true);
               }
             },
           )
@@ -283,153 +290,115 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           children: [
             const SizedBox(height: 16),
-            Container(
-              color: Colors.white,
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Column(
-                children: [
-                  _buildAvatar(),
-                  const SizedBox(height: 12),
-                  Text(_email, style: const TextStyle(color: Colors.grey)),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: TextFormField(
-                      controller: _nameCtrl,
-                      enabled: _isEditing,
-                      decoration:
-                      const InputDecoration(labelText: 'Họ và tên'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: _gender,
-                            decoration: const InputDecoration(
-                                labelText: 'Giới tính'),
-                            items: const [
-                              DropdownMenuItem(
-                                  value: 'male', child: Text('Nam')),
-                              DropdownMenuItem(
-                                  value: 'female', child: Text('Nữ')),
-                              DropdownMenuItem(
-                                  value: 'other', child: Text('Khác')),
-                            ],
-                            onChanged: _isEditing
-                                ? (v) => setState(() => _gender = v)
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: InkWell(
-                            onTap: _isEditing ? _chooseBirthDate : null,
-                            child: InputDecorator(
-                              decoration: const InputDecoration(
-                                  labelText: 'Ngày sinh'),
-                              child: Text(
-                                _birthdate != null
-                                    ? '${_birthdate!.day}/${_birthdate!.month}/${_birthdate!.year}'
-                                    : '-',
-                              ),
-                            ),
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: TextFormField(
-                      controller: _locationCtrl,
-                      enabled: _isEditing,
-                      decoration:
-                      const InputDecoration(labelText: 'Địa chỉ'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: TextFormField(
-                      controller: _interestsCtrl,
-                      enabled: _isEditing,
-                      decoration: const InputDecoration(
-                        labelText: 'Sở thích (ngăn cách bằng dấu phẩy)',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: TextFormField(
-                      controller: _bioCtrl,
-                      enabled: _isEditing,
-                      maxLines: 3,
-                      decoration:
-                      const InputDecoration(labelText: 'Giới thiệu'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (_isEditing)
-                    Padding(
-                      padding:
-                      const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: ElevatedButton.icon(
-                        onPressed: _saveProfile,
-                        icon: const Icon(Icons.save),
-                        label: const Text('Lưu hồ sơ'),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+            _buildProfileForm(),
             const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              color: Colors.white,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Cài đặt nhanh',
-                      style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  _SettingsItem(
-                      icon: Icons.settings,
-                      title: 'Cài đặt chi tiết',
-                      onTap: () {}),
-                  _SettingsItem(
-                      icon: Icons.shield,
-                      title: 'An toàn & Bảo mật',
-                      onTap: () {}),
-                  _SettingsItem(
-                    icon: Icons.logout,
-                    title: 'Đăng xuất',
-                    textColor: Colors.red,
-                    onTap: () async {
-                      await _authService.disconnect();
-                      if (mounted) {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const LoginScreen()),
-                              (route) => false,
-                        );
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
+            _buildSettingsSection(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildProfileForm() {
+    return Container(
+      color: Colors.white,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      child: Column(
+        children: [
+          _buildAvatar(),
+          const SizedBox(height: 12),
+          Text(_email, style: const TextStyle(color: Colors.grey)),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _nameCtrl,
+            decoration: const InputDecoration(labelText: 'Tên hiển thị'),
+            enabled: _isEditing,
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            value: _gender,
+            decoration: const InputDecoration(labelText: 'Giới tính'),
+            items: const [
+              DropdownMenuItem(value: 'male', child: Text('Nam')),
+              DropdownMenuItem(value: 'female', child: Text('Nữ')),
+              DropdownMenuItem(value: 'other', child: Text('Khác')),
+            ],
+            onChanged: _isEditing ? (v) => setState(() => _gender = v) : null,
+          ),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: _isEditing ? _chooseBirthDate : null,
+            child: AbsorbPointer(
+              child: TextFormField(
+                decoration: const InputDecoration(labelText: 'Ngày sinh'),
+                controller: TextEditingController(
+                    text: _birthdate != null
+                        ? '${_birthdate!.day}/${_birthdate!.month}/${_birthdate!.year}'
+                        : ''),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _bioCtrl,
+            decoration: const InputDecoration(labelText: 'Giới thiệu ngắn'),
+            maxLines: 3,
+            enabled: _isEditing,
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _locationCtrl,
+            decoration: const InputDecoration(labelText: 'Địa điểm'),
+            enabled: _isEditing,
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _interestsCtrl,
+            decoration: const InputDecoration(
+                labelText: 'Sở thích (ngăn cách bằng dấu ,)'),
+            enabled: _isEditing,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsSection() {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Cài đặt nhanh',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          _SettingsItem(
+              icon: Icons.settings,
+              title: 'Cài đặt chi tiết',
+              onTap: () {}),
+          _SettingsItem(
+              icon: Icons.shield,
+              title: 'An toàn & Bảo mật',
+              onTap: () {}),
+          _SettingsItem(
+            icon: Icons.logout,
+            title: 'Đăng xuất',
+            textColor: Colors.red,
+            onTap: () async {
+              await _authService.disconnect();
+              if (mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false,
+                );
+              }
+            },
+          ),
+        ],
       ),
     );
   }

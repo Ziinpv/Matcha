@@ -1,88 +1,102 @@
+// lib/services/user_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
 
 class UserService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final String _collection = 'users';
 
-  /// 🔹 Lấy UID người dùng hiện tại (nếu đã đăng nhập)
-  String? getCurrentUserId() {
-    return _auth.currentUser?.uid;
-  }
-
-  /// 🔹 Lấy danh sách người dùng khác (trừ bản thân)
-  /// Có thể thêm filter `profileComplete = true` nếu bạn chỉ muốn hiển thị người dùng có hồ sơ hoàn chỉnh.
-  // Future<List<UserModel>> fetchAllUsers({String? currentUserId}) async {
-  //   Query query = _firestore.collection('users');
-  //
-  //   // Lọc bỏ bản thân
-  //   if (currentUserId != null) {
-  //     query = query.where('user_id', isNotEqualTo: currentUserId);
-  //   }
-  //
-  //   // Chỉ lấy người đã hoàn thiện hồ sơ (nếu có trường này)
-  //   query = query.where('profileComplete', isEqualTo: true);
-  //
-  //   final snapshot = await query.get();
-  //
-  //   return snapshot.docs.map((doc) => UserModel.fromSnapshot(doc)).toList();
-  // }
-
-  Future<List<UserModel>> fetchAllUsers({required String currentUserId}) async {
-    try {
-      final snapshot = await _firestore.collection('users').get();
-
-      print('🔥 Tổng số user trong Firestore: ${snapshot.docs.length}');
-      for (var doc in snapshot.docs) {
-        print('👤 ${doc.data()}');
-      }
-
-      final users = snapshot.docs
-          .map((doc) => UserModel.fromSnapshot(doc))
-          .where((user) => user.uid != currentUserId)
-          .toList();
-
-      print('✅ Sau khi loại bỏ chính mình: ${users.length} user khả dụng');
-      return users;
-    } catch (e) {
-      print('❌ Lỗi khi fetch user: $e');
-      return [];
-    }
-  }
-
-  /// 🔹 Lấy thông tin 1 người dùng cụ thể
+  /// Lấy user theo UID
   Future<UserModel?> getUserById(String uid) async {
-    final doc = await _firestore.collection('users').doc(uid).get();
+    final doc = await _firestore.collection(_collection).doc(uid).get();
     if (!doc.exists) return null;
-    return UserModel.fromSnapshot(doc);
+
+    final data = doc.data()!;
+    return UserModel(
+      uid: uid,
+      email: data['email'] ?? '',
+      name: data['name'],
+      gender: data['gender'],
+      bio: data['bio'],
+      avatarUrl: data['avatar_url'],
+      birthdate: data['birthdate'] != null ? (data['birthdate'] as Timestamp).toDate() : null,
+      location: data['location'],
+      interests: data['interests'] != null ? List<String>.from(data['interests']) : [],
+      profileCompleted: data['profile_completed'] ?? false,
+      createdAt: data['created_at'] != null ? (data['created_at'] as Timestamp).toDate() : null,
+    );
   }
 
-  /// 🔹 Cập nhật hồ sơ người dùng
-  Future<void> updateUserProfile(UserModel user) async {
-    await _firestore.collection('users').doc(user.uid).update(user.toMap());
-  }
-
-  /// 🔹 Lấy danh sách người dùng theo giới tính (ví dụ lọc match)
-  Future<List<UserModel>> fetchUsersByGender(String gender, {String? currentUserId}) async {
-    Query query = _firestore.collection('users').where('gender', isEqualTo: gender);
-    if (currentUserId != null) {
-      query = query.where('user_id', isNotEqualTo: currentUserId);
-    }
-
-    final snapshot = await query.get();
-    return snapshot.docs.map((doc) => UserModel.fromSnapshot(doc)).toList();
-  }
-
-  /// 🔹 Tạo hoặc cập nhật người dùng mới (sử dụng trong Google Login / Register)
-  Future<void> createOrUpdateUser(UserModel user) async {
-    final docRef = _firestore.collection('users').doc(user.uid);
+  /// Tạo user mới nếu chưa có
+  Future<void> createUser(UserModel user) async {
+    final docRef = _firestore.collection(_collection).doc(user.uid);
     final doc = await docRef.get();
-
-    if (doc.exists) {
-      await docRef.update(user.toMap());
-    } else {
+    if (!doc.exists) {
       await docRef.set(user.toMap());
     }
+  }
+
+  /// Cập nhật user bất kỳ trường nào
+  Future<void> updateUser(String uid, Map<String, dynamic> update) async {
+    await _firestore.collection(_collection).doc(uid).update(update);
+  }
+
+  /// Kiểm tra profile đã hoàn thiện
+  Future<bool> userHasCompleteProfile(String uid) async {
+    final user = await getUserById(uid);
+    return user?.profileCompleted ?? false;
+  }
+
+  /// Hoàn thiện profile và cập nhật dữ liệu
+  Future<void> completeProfile(String uid, Map<String, dynamic> payload) async {
+    // Validate các trường bắt buộc
+    final hasRequiredFields =
+        (payload['name'] != null && payload['name'].toString().trim().isNotEmpty) &&
+            (payload['gender'] != null && payload['gender'].toString().trim().isNotEmpty) &&
+            (payload['birthdate'] != null) &&
+            (payload['interests'] != null && payload['interests'] is List && (payload['interests'] as List).isNotEmpty) &&
+            (payload['location'] != null && payload['location'].toString().trim().isNotEmpty);
+
+    final update = {
+      'name': payload['name'] ?? payload['displayName'],
+      'avatar_url': payload['avatarUrl'] ?? payload['avatar_url'],
+      'bio': payload['bio'],
+      'gender': payload['gender'],
+      'birthdate': payload['birthdate'],
+      'location': payload['location'],
+      'interests': payload['interests'],
+      'preferences': payload['preferences'],
+      'profile_completed': hasRequiredFields, // ← CHỈ TRUE KHI ĐỦ TẤT CẢ TRƯỜNG BẮT BUỘC
+    };
+
+    // Loại bỏ các trường null
+    update.removeWhere((key, value) => value == null);
+
+    await updateUser(uid, update);
+  }
+
+  /// Lấy danh sách tất cả user đã hoàn thiện profile
+  Future<List<UserModel>> getAllCompletedUsers() async {
+    final snapshot = await _firestore
+        .collection(_collection)
+        .where('profile_completed', isEqualTo: true)
+        .get();
+
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      return UserModel(
+        uid: doc.id,
+        email: data['email'] ?? '',
+        name: data['name'],
+        gender: data['gender'],
+        bio: data['bio'],
+        avatarUrl: data['avatar_url'],
+        birthdate: data['birthdate'] != null ? (data['birthdate'] as Timestamp).toDate() : null,
+        location: data['location'],
+        interests: data['interests'] != null ? List<String>.from(data['interests']) : [],
+        profileCompleted: data['profile_completed'] ?? false,
+        createdAt: data['created_at'] != null ? (data['created_at'] as Timestamp).toDate() : null,
+      );
+    }).toList();
   }
 }

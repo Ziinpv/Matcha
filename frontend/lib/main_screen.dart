@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'settings_screen.dart';
 import 'notification_screen.dart';
@@ -29,13 +30,15 @@ int? _calculateAge(DateTime? birthdate) {
   if (birthdate == null) return null;
   final now = DateTime.now();
   int age = now.year - birthdate.year;
-  if (now.month < birthdate.month || (now.month == birthdate.month && now.day < birthdate.day)) {
+  if (now.month < birthdate.month ||
+      (now.month == birthdate.month && now.day < birthdate.day)) {
     age--;
   }
   return age;
 }
 
-class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateMixin {
+class _MainScreenState extends State<MainScreen>
+    with SingleTickerProviderStateMixin {
   final UserService _userService = UserService();
   List<UserModel> _users = [];
   int _currentIndex = 0;
@@ -59,13 +62,21 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _loadUsers() async {
-    final currentUserId = _userService.getCurrentUserId();
-    final users = await _userService.fetchAllUsers(currentUserId: currentUserId ?? '');
-    setState(() {
-      _users = users;
-      _isLoading = false;
-    });
+    setState(() => _isLoading = true);
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+      final users = await _userService.getAllCompletedUsers();
+      setState(() {
+        _users = users.where((u) => u.uid != currentUserId).toList(); // loại trừ chính mình
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      debugPrint('Lỗi tải users: $e');
+    }
   }
+
 
   @override
   void dispose() {
@@ -73,37 +84,16 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  // void _animateCard(double endOffset, double endRotation, VoidCallback onCompleted) {
-  //   final offsetAnim = Tween<double>(begin: _cardOffsetX, end: endOffset)
-  //       .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
-  //   final rotationAnim = Tween<double>(begin: _cardRotation, end: endRotation)
-  //       .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
-  //
-  //   _animController.reset();
-  //   _animController.forward();
-  //
-  //   _animController.addListener(() {
-  //     setState(() {
-  //       _cardOffsetX = offsetAnim.value;
-  //       _cardRotation = rotationAnim.value;
-  //     });
-  //   });
-  //
-  //   _animController.addStatusListener((status) {
-  //     if (status == AnimationStatus.completed) {
-  //       onCompleted();
-  //       _resetCard();
-  //     }
-  //   });
-  // }
-  void _animateCard(double endOffset, double endRotation, VoidCallback onCompleted) {
+  void _animateCard(
+      double endOffset, double endRotation, VoidCallback onCompleted) {
     _animController.removeListener(() {});
     _animController.removeStatusListener((_) {});
 
-    final offsetAnim = Tween<double>(begin: _cardOffsetX, end: endOffset)
-        .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
-    final rotationAnim = Tween<double>(begin: _cardRotation, end: endRotation)
-        .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
+    final offsetAnim = Tween<double>(begin: _cardOffsetX, end: endOffset).animate(
+        CurvedAnimation(parent: _animController, curve: Curves.easeOut));
+    final rotationAnim =
+    Tween<double>(begin: _cardRotation, end: endRotation).animate(
+        CurvedAnimation(parent: _animController, curve: Curves.easeOut));
 
     _animController.reset();
     _animController.forward();
@@ -121,7 +111,6 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
       }
     });
   }
-
 
   void _resetCard() {
     setState(() {
@@ -145,13 +134,9 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
 
   void _onStar() {
     setState(() => _showStar = true);
-
-    // Không truyền callback vào _animateCard để tránh gọi 2 lần
     _animateCard(0, 0, () {});
-
     Future.delayed(const Duration(milliseconds: 500), () {
-      // _resetCard();  // reset thủ công sau khi delay
-      _nextUser();   // chuyển user sau hiệu ứng
+      _nextUser();
     });
   }
 
@@ -185,7 +170,8 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
     }
   }
 
-  UserModel? get _currentUser => _users.isEmpty ? null : _users[_currentIndex];
+  UserModel? get _currentUser =>
+      _users.isEmpty ? null : _users[_currentIndex];
 
   @override
   Widget build(BuildContext context) {
@@ -254,13 +240,17 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
       actions: [
         _AppBarIcon(
           icon: Icons.notifications_outlined,
-          onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const NotificationScreen())),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const NotificationScreen()),
+          ),
         ),
         _AppBarIcon(
           icon: Icons.settings_outlined,
-          onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const SettingsScreen())),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SettingsScreen()),
+          ),
         ),
       ],
     );
@@ -308,8 +298,9 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
   }
 }
 
-// ========== WIDGET COMPONENTS ==========
-
+// ==============================
+// WIDGET COMPONENTS (giữ nguyên UI cũ)
+// ==============================
 class _UserCard extends StatelessWidget {
   final UserModel user;
   final double offsetX;
@@ -348,7 +339,8 @@ class _UserCard extends StatelessWidget {
           child: Stack(
             children: [
               Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                 elevation: 12,
                 margin: EdgeInsets.zero,
                 shadowColor: AppColors.primary.withOpacity(0.2),
@@ -365,21 +357,21 @@ class _UserCard extends StatelessWidget {
                   ),
                   child: Stack(
                     children: [
-                      // Background Image
                       Positioned.fill(
                         child: Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(28),
                             image: DecorationImage(
-                              image: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                              image: user.avatarUrl != null &&
+                                  user.avatarUrl!.isNotEmpty
                                   ? NetworkImage(user.avatarUrl!)
-                                  : const AssetImage('assets/profilepic.jpg') as ImageProvider,
+                                  : const AssetImage('assets/profilepic.jpg')
+                              as ImageProvider,
                               fit: BoxFit.cover,
                             ),
                           ),
                         ),
                       ),
-                      // Gradient Overlay
                       Positioned.fill(
                         child: Container(
                           decoration: BoxDecoration(
@@ -396,14 +388,12 @@ class _UserCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // User Info
                       Positioned(
                         left: 16,
                         bottom: 20,
                         right: 16,
                         child: _UserInfoSection(user: user, age: age),
                       ),
-                      // Swipe Indicators
                       if (showLike)
                         Positioned(
                           top: 40,
@@ -464,7 +454,12 @@ class _UserInfoSection extends StatelessWidget {
                             color: Colors.white,
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            shadows: [Shadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 2)],
+                            shadows: [
+                              Shadow(
+                                  color: Colors.black26,
+                                  offset: Offset(0, 1),
+                                  blurRadius: 2)
+                            ],
                           ),
                         ),
                       ),
@@ -482,11 +477,14 @@ class _UserInfoSection extends StatelessWidget {
                   const SizedBox(height: 3),
                   Row(
                     children: [
-                      const Icon(Icons.location_on, color: AppColors.primary, size: 16),
+                      const Icon(Icons.location_on,
+                          color: AppColors.primary, size: 16),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
-                          user.location?.isNotEmpty == true ? user.location! : 'Đang cập nhật vị trí...',
+                          user.location?.isNotEmpty == true
+                              ? user.location!
+                              : 'Đang cập nhật vị trí...',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.9),
                             fontSize: 14,
@@ -526,14 +524,23 @@ class _CompatibilityBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 6, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: AppColors.primary.withOpacity(0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.favorite, color: Colors.white, size: 14),
           SizedBox(width: 3),
-          Text('92%', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+          Text('92%',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -552,11 +559,17 @@ class _HobbyChip extends StatelessWidget {
         color: Colors.white.withOpacity(0.25),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white.withOpacity(0.6), width: 1),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 3, offset: const Offset(0, 1))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 3,
+              offset: const Offset(0, 1))
+        ],
       ),
       child: Text(
         label,
-        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+        style:
+        const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -615,7 +628,8 @@ class _CircleButton extends StatefulWidget {
   State<_CircleButton> createState() => _CircleButtonState();
 }
 
-class _CircleButtonState extends State<_CircleButton> with SingleTickerProviderStateMixin {
+class _CircleButtonState extends State<_CircleButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
@@ -716,9 +730,11 @@ class _ProfileDialog extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 28,
-                    backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                    backgroundImage: user.avatarUrl != null &&
+                        user.avatarUrl!.isNotEmpty
                         ? NetworkImage(user.avatarUrl!)
-                        : const AssetImage('assets/profilepic.jpg') as ImageProvider,
+                        : const AssetImage('assets/profilepic.jpg')
+                    as ImageProvider,
                   ),
                   const SizedBox(width: 16),
                   Column(
@@ -726,16 +742,21 @@ class _ProfileDialog extends StatelessWidget {
                     children: [
                       Text(
                         '${user.name ?? 'Ẩn danh'}${age != null ? ', $age' : ''}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 20),
                       ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.location_on, color: AppColors.primary, size: 18),
+                          const Icon(Icons.location_on,
+                              color: AppColors.primary, size: 18),
                           const SizedBox(width: 4),
                           Text(
-                            user.location?.isNotEmpty == true ? user.location! : 'Đang cập nhật vị trí...',
-                            style: const TextStyle(fontSize: 14, color: Colors.black54),
+                            user.location?.isNotEmpty == true
+                                ? user.location!
+                                : 'Đang cập nhật vị trí...',
+                            style: const TextStyle(
+                                fontSize: 14, color: Colors.black54),
                           ),
                         ],
                       ),
@@ -744,14 +765,18 @@ class _ProfileDialog extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 20),
-              const Text('Giới thiệu', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text('Giới thiệu',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 6),
               Text(
-                user.bio?.isNotEmpty == true ? user.bio! : 'Người này chưa viết gì cả.',
+                user.bio?.isNotEmpty == true
+                    ? user.bio!
+                    : 'Người này chưa viết gì cả.',
                 style: const TextStyle(fontSize: 15, color: Colors.black87),
               ),
               const SizedBox(height: 18),
-              const Text('Sở thích', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text('Sở thích',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -781,11 +806,13 @@ class _ProfileHobbyChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primaryLight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1),
+        border: Border.all(
+            color: AppColors.primary.withOpacity(0.3), width: 1),
       ),
       child: Text(
         label,
-        style: const TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+            color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w600),
       ),
     );
   }
