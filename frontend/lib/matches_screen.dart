@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'chat_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'services/match_service.dart';
 
 // Color scheme constants
 class AppColors {
@@ -51,68 +54,69 @@ class MatchesScreen extends StatefulWidget {
 
 class _MatchesScreenState extends State<MatchesScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
-  final List<Match> _matches = [
-    Match(
-      id: '1',
-      name: 'Linh',
-      age: 25,
-      bio: 'Yêu thích du lịch và khám phá những món ăn mới.',
-      interests: ['Du lịch', 'Ẩm thực'],
-      avatarUrl: 'assets/profilepic.jpg',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
-      isNew: true,
-      matchType: 'superlike',
-      compatibilityScore: 92,
-    ),
-    Match(
-      id: '2',
-      name: 'Minh',
-      age: 28,
-      bio: 'Lập trình viên đam mê công nghệ.',
-      interests: ['Công nghệ', 'Thể thao'],
-      avatarUrl: 'assets/profilepic.jpg',
-      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-      isNew: true,
-      matchType: 'like',
-      compatibilityScore: 87,
-    ),
-    Match(
-      id: '3',
-      name: 'Hương',
-      age: 24,
-      bio: 'Họa sĩ tự do, yêu thích thiên nhiên.',
-      interests: ['Vẽ', 'Thiên nhiên'],
-      avatarUrl: 'assets/profilepic.jpg',
-      timestamp: DateTime.now().subtract(const Duration(days: 1)),
-      isNew: false,
-      matchType: 'like',
-      compatibilityScore: 94,
-    ),
-    Match(
-      id: '4',
-      name: 'Tuấn',
-      age: 27,
-      bio: 'Nhiếp ảnh gia và travel blogger.',
-      interests: ['Nhiếp ảnh', 'Du lịch'],
-      avatarUrl: 'assets/profilepic.jpg',
-      timestamp: DateTime.now().subtract(const Duration(days: 3)),
-      isNew: false,
-      matchType: 'superlike',
-      compatibilityScore: 89,
-    ),
-  ];
+  final MatchService _service = MatchService();
+  bool _loading = true;
+  List<Match> _allLikes = [];
+  List<Match> _mutualMatches = [];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _bootstrap();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _bootstrap() async {
+    try {
+      // Ensure Firebase is ready in case not initialized elsewhere
+      FirebaseFirestore.instance;
+      FirebaseAuth.instance;
+
+      final likes = await _service.getAllLikes();
+      final mutual = await _service.getMutualMatches();
+
+      setState(() {
+        _allLikes = likes
+            .map((u) => Match(
+                  id: u.uid,
+                  name: u.name,
+                  age: u.age ?? 0,
+                  bio: u.bio,
+                  interests: u.interests,
+                  avatarUrl: u.avatarUrl.isNotEmpty ? u.avatarUrl : 'assets/profilepic.jpg',
+                  timestamp: u.timestamp,
+                  isNew: false,
+                  matchType: 'like',
+                ))
+            .toList();
+
+        _mutualMatches = mutual
+            .map((u) => Match(
+                  id: u.uid,
+                  name: u.name,
+                  age: u.age ?? 0,
+                  bio: u.bio,
+                  interests: u.interests,
+                  avatarUrl: u.avatarUrl.isNotEmpty ? u.avatarUrl : 'assets/profilepic.jpg',
+                  timestamp: u.timestamp,
+                  isNew: true,
+                  matchType: 'like',
+                ))
+            .toList();
+
+        _loading = false;
+      });
+    } catch (_) {
+      setState(() {
+        _loading = false;
+      });
+    }
   }
 
   String _formatTime(DateTime dateTime) {
@@ -128,17 +132,20 @@ class _MatchesScreenState extends State<MatchesScreen> with SingleTickerProvider
     }
   }
 
-  List<Match> get newMatches => _matches.where((match) => match.isNew).toList();
-  List<Match> get allMatches => _matches;
+  List<Match> get newMatches => _mutualMatches;
+  List<Match> get allMatches => _allLikes;
 
   void _startChat(Match match) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    
     final chat = Chat(
-      id: match.id,
+      id: match.id, // This is the other user's UID
       name: match.name,
       lastMessage: '',
-      timestamp: DateTime.now(),
-      avatarUrl: match.avatarUrl,
-      isOnline: true,
+      timestamp: match.timestamp,
+      avatarUrl: match.avatarUrl.isNotEmpty ? match.avatarUrl : 'assets/profilepic.jpg',
+      isOnline: false,
       unreadCount: 0,
     );
 
@@ -266,7 +273,9 @@ class _MatchesScreenState extends State<MatchesScreen> with SingleTickerProvider
           ),
         ),
       ),
-      body: TabBarView(
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : TabBarView(
         controller: _tabController,
         children: [
           // New Matches Tab

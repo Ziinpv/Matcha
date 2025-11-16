@@ -7,8 +7,6 @@ class UserModel {
   String? gender;
   String? bio;
   String? avatarUrl;
-  DateTime? birthdate;
-  String? location;
   List<String>? interests;
   bool profileCompleted;
   DateTime? createdAt;
@@ -20,8 +18,6 @@ class UserModel {
     this.gender,
     this.bio,
     this.avatarUrl,
-    this.birthdate,
-    this.location,
     this.interests,
     this.createdAt,
     this.profileCompleted = false,
@@ -35,8 +31,6 @@ class UserModel {
       'gender': gender ?? '',
       'bio': bio ?? '',
       'avatar_url': avatarUrl ?? '',
-      'birthdate': birthdate != null ? Timestamp.fromDate(birthdate!) : null,
-      'location': location ?? '',
       'interests': interests ?? [],
       'profile_completed': profileCompleted,
       'created_at': createdAt != null
@@ -53,15 +47,11 @@ class UserModel {
       gender: map['gender'],
       bio: map['bio'],
       avatarUrl: map['avatar_url'],
-      birthdate: map['birthdate'] != null
-          ? (map['birthdate'] as Timestamp).toDate()
-          : null,
-      location: map['location'],
       interests: map['interests'] != null ? List<String>.from(map['interests']) : [],
-      profileCompleted: map['profile_completed'] == true,
       createdAt: map['created_at'] != null
           ? (map['created_at'] as Timestamp).toDate()
           : null,
+      profileCompleted: map['profile_completed'] == true,
     );
   }
 

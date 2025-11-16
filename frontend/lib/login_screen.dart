@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import 'register_screen.dart';
 import 'main_tab_screen.dart';
-import 'set_password_screen.dart'; // Thêm import cho SetPasswordScreen
+import 'onboarding_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -31,9 +31,15 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (user != null) {
+        final hasProfile = await _authService.userHasCompleteProfile(user.uid);
+
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const MainTabScreen()),
+          MaterialPageRoute(
+            builder: (_) => hasProfile
+                ? MainTabScreen(initialIndex: 0)
+                : const OnboardingScreen(), // Chuyển đến onboarding nếu chưa có profile
+          ),
         );
       }
     } on FirebaseAuthException catch (e) {
@@ -49,29 +55,40 @@ class _LoginScreenState extends State<LoginScreen> {
       final user = await _authService.signInWithGoogle();
 
       if (user != null) {
-        // Kiểm tra xem user đã có credential email/password chưa
-        final hasPassword = user.providerData.any((p) => p.providerId == 'password');
+        final hasProfile = await _authService.userHasCompleteProfile(user.uid);
 
-        if (!hasPassword) {
-          // chưa có password → vào màn hình set password
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const SetPasswordScreen()),
-          );
-        } else {
-          // đã có password → vào màn hình chính
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const MainTabScreen()),
-          );
-        }
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => hasProfile
+                ? MainTabScreen(initialIndex: 0)
+                : const OnboardingScreen(), // Chuyển đến onboarding nếu chưa có profile
+          ),
+        );
       } else {
         _showError("Đăng nhập Google bị hủy");
       }
     } catch (e) {
-      _showError("Đăng nhập Google thất bại");
+      _showError("Đăng nhập Google thất bại: $e");
     } finally {
       setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _forgotPassword() async {
+    final email = emailController.text.trim();
+    if (email.isEmpty) {
+      _showError("Vui lòng nhập email để đặt lại mật khẩu");
+      return;
+    }
+
+    try {
+      await _authService.sendPasswordReset(email);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Đã gửi email đặt lại mật khẩu")),
+      );
+    } catch (e) {
+      _showError("Không gửi được email đặt lại mật khẩu: $e");
     }
   }
 
@@ -172,7 +189,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 24),
+                // Quên mật khẩu
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _loading ? null : _forgotPassword,
+                    child: const Text(
+                      "Quên mật khẩu?",
+                      style: TextStyle(color: Color(0xFFFF4B91)),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
 
                 // Nút Login Email
                 SizedBox(
