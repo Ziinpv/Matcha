@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'main_tab_screen.dart';
+import 'onboarding_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -50,9 +51,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => MainTabScreen(
-              initialIndex: hasProfile ? 0 : 3, // tab Hồ sơ nếu chưa hoàn thiện
-            ),
+            builder: (_) => hasProfile
+                ? MainTabScreen(initialIndex: 0)
+                : const OnboardingScreen(), // Chuyển đến onboarding nếu chưa có profile
           ),
         );
       }
@@ -76,9 +77,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => MainTabScreen(
-              initialIndex: hasProfile ? 0 : 3,
-            ),
+            builder: (_) => hasProfile
+                ? MainTabScreen(initialIndex: 0)
+                : const OnboardingScreen(), // Chuyển đến onboarding nếu chưa có profile
           ),
         );
       }

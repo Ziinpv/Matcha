@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'services/chat_api.dart';
+import 'services/match_service.dart';
 
 // Color scheme constants
 class AppColors {
@@ -62,59 +66,117 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
-  final List<Chat> _chats = [
-    Chat(
-      id: '1',
-      name: 'Linh',
-      lastMessage: 'Chào bạn! Mình rất vui khi được kết đôi với bạn 😊',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
-      avatarUrl: 'assets/profilepic.jpg',
-      isOnline: true,
-      unreadCount: 2,
-    ),
-    Chat(
-      id: '2',
-      name: 'Minh',
-      lastMessage: 'Cuối tuần này bạn có rảnh không?',
-      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-      avatarUrl: 'assets/profilepic.jpg',
-      isOnline: false,
-      unreadCount: 0,
-    ),
-    Chat(
-      id: '3',
-      name: 'Hương',
-      lastMessage: 'Mình vừa vẽ xong một bức tranh mới!',
-      timestamp: DateTime.now().subtract(const Duration(days: 1)),
-      avatarUrl: 'assets/profilepic.jpg',
-      isOnline: false,
-      unreadCount: 1,
-    ),
-  ];
+  final MatchService _matchService = MatchService();
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  
+  List<Chat> _chats = [];
+  List<ChatMessage> _messages = [];
+  bool _loading = false;
+  bool _loadingChats = false;
 
-  List<ChatMessage> _messages = [
-    ChatMessage(
-      id: '1',
-      senderId: '1',
-      message: 'Chào bạn! 👋',
-      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-      isMe: false,
-    ),
-    ChatMessage(
-      id: '2',
-      senderId: 'me',
-      message: 'Chào Linh! Rất vui được làm quen 😊',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 90)),
-      isMe: true,
-    ),
-    ChatMessage(
-      id: '3',
-      senderId: '1',
-      message: 'Mình rất vui khi được kết đôi với bạn 😊',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
-      isMe: false,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    if (widget.selectedChat != null) {
+      _loadMessages();
+    } else {
+      _loadChats();
+    }
+  }
+
+  Future<void> _loadChats() async {
+    setState(() => _loadingChats = true);
+    try {
+      // Load mutual matches (chat rooms)
+      final matches = await _matchService.getMutualMatches();
+      
+      // Load last message for each chat
+      final List<Chat> chats = [];
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        setState(() {
+          _chats = [];
+          _loadingChats = false;
+        });
+        return;
+      }
+
+      for (final match in matches) {
+        final roomId = _roomIdFor(currentUser.uid, match.uid);
+        
+        // Get last message
+        final messagesSnap = await _db
+            .collection('messages')
+            .where('roomId', isEqualTo: roomId)
+            .orderBy('createdAt', descending: true)
+            .limit(1)
+            .get();
+
+        String lastMessage = '';
+        DateTime lastTimestamp = match.timestamp;
+        
+        if (messagesSnap.docs.isNotEmpty) {
+          final msgData = messagesSnap.docs.first.data();
+          lastMessage = msgData['text'] as String? ?? '';
+          if (msgData['createdAt'] != null && msgData['createdAt'] is Timestamp) {
+            lastTimestamp = (msgData['createdAt'] as Timestamp).toDate();
+          }
+        }
+
+        chats.add(Chat(
+          id: match.uid,
+          name: match.name,
+          lastMessage: lastMessage,
+          timestamp: lastTimestamp,
+          avatarUrl: match.avatarUrl.isNotEmpty ? match.avatarUrl : 'assets/profilepic.jpg',
+          isOnline: false, // TODO: implement online status
+          unreadCount: 0, // TODO: implement unread count
+        ));
+      }
+
+      // Sort by timestamp
+      chats.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+      setState(() {
+        _chats = chats;
+        _loadingChats = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading chats: $e');
+      setState(() {
+        _chats = [];
+        _loadingChats = false;
+      });
+    }
+  }
+
+  Future<void> _loadMessages() async {
+    final me = FirebaseAuth.instance.currentUser;
+    if (me == null || widget.selectedChat == null) return;
+    setState(() => _loading = true);
+    try {
+      final roomId = _roomIdFor(me.uid, widget.selectedChat!.id);
+      final list = await ChatApi.getMessages(roomId);
+      setState(() {
+        _messages = list
+            .map((m) => ChatMessage(
+                  id: m.id,
+                  senderId: m.from,
+                  message: m.text,
+                  timestamp: m.createdAt,
+                  isMe: m.from == me.uid,
+                ))
+            .toList();
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _roomIdFor(String a, String b) {
+    final sorted = [a, b]..sort();
+    return 'room_${sorted.join('_')}';
+  }
 
   String _formatTime(DateTime dateTime) {
     final now = DateTime.now();
@@ -131,20 +193,26 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _sendMessage() {
     if (_messageController.text.trim().isEmpty) return;
+    final me = FirebaseAuth.instance.currentUser;
+    if (me == null || widget.selectedChat == null) return;
+    final text = _messageController.text.trim();
+    _messageController.clear();
 
-    final newMessage = ChatMessage(
+    final roomId = _roomIdFor(me.uid, widget.selectedChat!.id);
+    final toUid = widget.selectedChat!.id;
+
+    final optimistic = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      senderId: 'me',
-      message: _messageController.text.trim(),
+      senderId: me.uid,
+      message: text,
       timestamp: DateTime.now(),
       isMe: true,
     );
+    setState(() => _messages.add(optimistic));
 
-    setState(() {
-      _messages.add(newMessage);
+    ChatApi.sendMessage(roomId, toUid, text).catchError((e) {
+      // Optionally handle failure
     });
-
-    _messageController.clear();
   }
 
   @override
@@ -183,20 +251,27 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         centerTitle: false,
       ),
-      body: Column(
-        children: [
-          // Chat List
-          Expanded(
-            child: ListView.builder(
-              itemCount: _chats.length,
-              itemBuilder: (context, index) {
-                final chat = _chats[index];
-                return _buildChatItem(chat);
-              },
+      body: _loadingChats
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                // Chat List
+                Expanded(
+                  child: _chats.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          onRefresh: _loadChats,
+                          child: ListView.builder(
+                            itemCount: _chats.length,
+                            itemBuilder: (context, index) {
+                              final chat = _chats[index];
+                              return _buildChatItem(chat);
+                            },
+                          ),
+                        ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -384,7 +459,12 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             child: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
           ),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            }
+            // If can't pop, do nothing - user is already at root
+          },
         ),
         title: Row(
           children: [
@@ -493,14 +573,16 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           // Messages
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                return _buildMessageBubble(message);
-              },
-            ),
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[index];
+                      return _buildMessageBubble(message);
+                    },
+                  ),
           ),
           // Message Input
           Container(
@@ -689,6 +771,87 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.1),
+                    AppColors.secondary.withValues(alpha: 0.1),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: 60,
+                color: AppColors.primary.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 32),
+            const Text(
+              'Chưa có tin nhắn',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Kết đôi với ai đó để bắt đầu trò chuyện!',
+              style: TextStyle(
+                fontSize: 16,
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  // Safely navigate back - do nothing if already at root
+                  // The MainTabScreen will handle tab switching
+                  if (Navigator.canPop(context)) {
+                    Navigator.popUntil(context, (route) => route.isFirst);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.pastelPink,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  elevation: 4,
+                ),
+                child: const Text(
+                  'Tiếp tục tìm kiếm',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'settings_screen.dart';
 import 'notification_screen.dart';
 import '../models/user_model.dart';
 import '../services/user_service.dart';
+import 'services/match_api.dart';
 
 class AppColors {
   static const Color primary = Color(0xFFFF4B91);
@@ -124,12 +125,60 @@ class _MainScreenState extends State<MainScreen>
 
   void _onLike() {
     setState(() => _showLike = true);
-    _animateCard(500, 0.3, _nextUser);
+    final target = _currentUser;
+    _animateCard(500, 0.3, () async {
+      if (target != null) {
+        try {
+          await MatchApi.swipe(target.uid, 'like');
+          // Check for mutual match after a short delay to ensure backend processed
+          Future.delayed(const Duration(milliseconds: 500), () async {
+            try {
+              final result = await MatchApi.check(target.uid);
+              if (result.matched && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Bạn đã kết đôi! Bây giờ có thể nhắn tin.'),
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              }
+            } catch (e) {
+              // Silently ignore check errors
+              debugPrint('Check match error: $e');
+            }
+          });
+        } catch (e) {
+          // Swipe failed, but UI already animated - just log
+          debugPrint('Swipe like error: $e');
+          // Optionally show a non-blocking error message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Không thể kết nối. Vui lòng thử lại sau.'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      }
+      _nextUser();
+    });
   }
 
   void _onDislike() {
     setState(() => _showDislike = true);
-    _animateCard(-500, -0.3, _nextUser);
+    final target = _currentUser;
+    _animateCard(-500, -0.3, () async {
+      if (target != null) {
+        try {
+          await MatchApi.swipe(target.uid, 'dislike');
+        } catch (e) {
+          // Silently ignore - UI already animated
+          debugPrint('Swipe dislike error: $e');
+        }
+      }
+      _nextUser();
+    });
   }
 
   void _onStar() {
