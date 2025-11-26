@@ -1,3 +1,4 @@
+import 'package:dating_app/services/like_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'settings_screen.dart';
@@ -61,21 +62,50 @@ class _MainScreenState extends State<MainScreen>
     _loadUsers();
   }
 
+  // Future<void> _loadUsers() async {
+  //   setState(() => _isLoading = true);
+  //   try {
+  //     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+  //
+  //     final users = await _userService.getAllCompletedUsers();
+  //     setState(() {
+  //       _users = users.where((u) => u.uid != currentUserId).toList(); // loại trừ chính mình
+  //       _isLoading = false;
+  //     });
+  //   } catch (e) {
+  //     setState(() => _isLoading = false);
+  //     debugPrint('Lỗi tải users: $e');
+  //   }
+  // }
+
   Future<void> _loadUsers() async {
     setState(() => _isLoading = true);
+
     try {
       final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUserId == null) return;
 
-      final users = await _userService.getAllCompletedUsers();
+      final allUsers = await _userService.getAllCompletedUsers();
+
+      // Lấy toàn bộ user đã quẹt
+      final swiped = await LikeService().getAllSwipedUsers(currentUserId);
+
+      // Lọc user chưa quẹt + khác mình
+      final filtered = allUsers.where((u) =>
+      u.uid != currentUserId &&
+          !swiped.contains(u.uid)
+      ).toList();
+
       setState(() {
-        _users = users.where((u) => u.uid != currentUserId).toList(); // loại trừ chính mình
+        _users = filtered;
         _isLoading = false;
       });
     } catch (e) {
+      print("Lỗi load users: $e");
       setState(() => _isLoading = false);
-      debugPrint('Lỗi tải users: $e');
     }
   }
+
 
 
   @override
@@ -122,15 +152,26 @@ class _MainScreenState extends State<MainScreen>
     });
   }
 
-  void _onLike() {
+  void _onLike() async {
+    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+    final targetId = _currentUser!.uid;
+
+    await LikeService().likeUser(currentUserId, targetId);
+
     setState(() => _showLike = true);
     _animateCard(500, 0.3, _nextUser);
   }
 
-  void _onDislike() {
+  void _onDislike() async {
+    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+    final targetId = _currentUser!.uid;
+
+    await LikeService().dislikeUser(currentUserId, targetId);
+
     setState(() => _showDislike = true);
     _animateCard(-500, -0.3, _nextUser);
   }
+
 
   void _onStar() {
     setState(() => _showStar = true);
@@ -140,16 +181,18 @@ class _MainScreenState extends State<MainScreen>
     });
   }
 
-  void _nextUser() {
+  void _nextUser() async {
+    await _loadUsers(); // 🔥 reload danh sách user chưa quẹt
+
     setState(() {
       _resetCard();
-      if (_currentIndex < _users.length - 1) {
-        _currentIndex++;
-      } else {
-        _currentIndex = 0;
+
+      if (_users.isNotEmpty) {
+        _currentIndex = 0;  // Load lại list → bắt đầu từ user đầu tiên
       }
     });
   }
+
 
   void _onPanUpdate(DragUpdateDetails details) {
     setState(() {
@@ -257,32 +300,61 @@ class _MainScreenState extends State<MainScreen>
   }
 
   Widget _buildActionButtons() {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      child: Column(
         children: [
-          _CircleButton(
-            icon: Icons.close_rounded,
-            color: Colors.white,
-            iconColor: AppColors.error,
-            onTap: _onDislike,
-            size: 64,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _CircleButton(
+                icon: Icons.close_rounded,
+                color: Colors.white,
+                iconColor: AppColors.error,
+                onTap: _onDislike,
+                size: 64,
+              ),
+              _CircleButton(
+                icon: Icons.star_rounded,
+                color: AppColors.warning,
+                iconColor: Colors.white,
+                onTap: _onStar,
+                size: 56,
+              ),
+              _CircleButton(
+                icon: Icons.favorite_rounded,
+                color: AppColors.success,
+                iconColor: Colors.white,
+                onTap: _onLike,
+                size: 64,
+              ),
+            ],
           ),
-          _CircleButton(
-            icon: Icons.star_rounded,
-            color: AppColors.warning,
-            iconColor: Colors.white,
-            onTap: _onStar,
-            size: 56,
-          ),
-          _CircleButton(
-            icon: Icons.favorite_rounded,
-            color: AppColors.success,
-            iconColor: Colors.white,
-            onTap: _onLike,
-            size: 64,
-          ),
+
+          const SizedBox(height: 16),
+
+          // 🔥 NÚT RESET Ở ĐÂY
+          ElevatedButton.icon(
+            onPressed: () async {
+              await LikeService().resetUserData(uid);
+              await _loadUsers();
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Đã reset dữ liệu test!"))
+              );
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text("Reset dữ liệu test"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          )
         ],
       ),
     );

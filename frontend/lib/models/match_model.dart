@@ -22,7 +22,9 @@ class MatchModel {
       'user1_id': user1Id,
       'user2_id': user2Id,
       'status': status ?? 'active',
-      'created_at': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
+      'created_at': createdAt != null
+          ? Timestamp.fromDate(createdAt!)
+          : FieldValue.serverTimestamp(),
     };
   }
 
@@ -31,8 +33,10 @@ class MatchModel {
       matchId: map['match_id'] ?? '',
       user1Id: map['user1_id'] ?? '',
       user2Id: map['user2_id'] ?? '',
-      status: (map['status'] as String?)?.isNotEmpty == true ? map['status'] : 'active',
-      createdAt: map['created_at'] != null ? (map['created_at'] as Timestamp).toDate() : null,
+      status: map['status'] ?? 'active',
+      createdAt: map['created_at'] != null
+          ? (map['created_at'] as Timestamp).toDate()
+          : null,
     );
   }
 
