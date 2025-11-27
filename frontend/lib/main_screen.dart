@@ -1,4 +1,6 @@
 import 'package:dating_app/services/like_service.dart';
+import 'package:dating_app/widgets/match_banner.dart';
+import 'package:dating_app/widgets/match_popup_fullscreen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'settings_screen.dart';
@@ -62,22 +64,6 @@ class _MainScreenState extends State<MainScreen>
     _loadUsers();
   }
 
-  // Future<void> _loadUsers() async {
-  //   setState(() => _isLoading = true);
-  //   try {
-  //     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-  //
-  //     final users = await _userService.getAllCompletedUsers();
-  //     setState(() {
-  //       _users = users.where((u) => u.uid != currentUserId).toList(); // loại trừ chính mình
-  //       _isLoading = false;
-  //     });
-  //   } catch (e) {
-  //     setState(() => _isLoading = false);
-  //     debugPrint('Lỗi tải users: $e');
-  //   }
-  // }
-
   Future<void> _loadUsers() async {
     setState(() => _isLoading = true);
 
@@ -106,6 +92,32 @@ class _MainScreenState extends State<MainScreen>
     }
   }
 
+  void _showFullMatchPopup(String matchedUserId) async {
+    final otherUser = await _userService.getUserById(matchedUserId);
+    final currentUser = await _userService.getUserById(
+        FirebaseAuth.instance.currentUser!.uid);
+
+    if (!mounted) return;
+
+    showDialog(
+      barrierDismissible: false,
+      context: context,
+      builder: (context) {
+        return MatchPopupFullScreen(
+          myAvatar: currentUser?.avatarUrl ?? "",
+          otherAvatar: otherUser?.avatarUrl ?? "",
+          otherName: otherUser?.name ?? "Người lạ",
+          onChat: () {
+            Navigator.pop(context);
+            // TODO: mở màn hình chat
+          },
+          onContinue: () {
+            Navigator.pop(context);
+          },
+        );
+      },
+    );
+  }
 
 
   @override
@@ -153,14 +165,21 @@ class _MainScreenState extends State<MainScreen>
   }
 
   void _onLike() async {
-    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+    final uid = FirebaseAuth.instance.currentUser!.uid;
     final targetId = _currentUser!.uid;
 
-    await LikeService().likeUser(currentUserId, targetId);
+    // 🔥 GỌI API MỚI
+    final result = await LikeService().likeUserWithResult(uid, targetId);
+
+    if (result.isMatch) {
+      _showFullMatchPopup(result.matchedUserId!);
+    }
 
     setState(() => _showLike = true);
     _animateCard(500, 0.3, _nextUser);
   }
+
+
 
   void _onDislike() async {
     final currentUserId = FirebaseAuth.instance.currentUser!.uid;

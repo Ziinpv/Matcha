@@ -1,30 +1,46 @@
-// lib/services/like_service.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/like_model.dart';
 import '../models/match_model.dart';
+import 'chat_service.dart';
+
+class MatchResult {
+  final bool isMatch;
+  final String? matchedUserId;
+  MatchResult({required this.isMatch, this.matchedUserId});
+}
 
 class LikeService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String _likesCollection = "likes";
   final String _matchesCollection = "matches";
 
-  /// LIKE USER (A → B)
+  // ------------------------------------------------------------
+  // 🔥 1) API CŨ — GIỮ NGUYÊN (để app không lỗi)
+  // ------------------------------------------------------------
   Future<void> likeUser(String fromUserId, String toUserId) async {
-    if (fromUserId == toUserId) return;
+    await likeUserWithResult(fromUserId, toUserId);
+  }
+
+  // ------------------------------------------------------------
+  // 🔥 2) API MỚI — DÙNG CHO MATCH BANNER
+  // ------------------------------------------------------------
+  Future<MatchResult> likeUserWithResult(String fromUserId, String toUserId) async {
+    if (fromUserId == toUserId) {
+      return MatchResult(isMatch: false);
+    }
 
     // Check trùng like
     final existed = await _firestore
         .collection(_likesCollection)
-        .where('from_user_id', isEqualTo: fromUserId)
-        .where('to_user_id', isEqualTo: toUserId)
-        .where('action', isEqualTo: 'like')
+        .where("from_user_id", isEqualTo: fromUserId)
+        .where("to_user_id", isEqualTo: toUserId)
+        .where("action", isEqualTo: "like")
         .limit(1)
         .get();
 
     if (existed.docs.isNotEmpty) {
-      print("⚠️ User đã like trước đó → bỏ qua");
-      return;
+      print("⚠️ Like trùng → bỏ qua");
+      return MatchResult(isMatch: false);
     }
 
     // Tạo like
@@ -39,54 +55,64 @@ class LikeService {
 
     await _firestore.collection(_likesCollection).doc(likeId).set(newLike.toMap());
 
-    // Kiểm tra mutual
-    await _checkMutualLike(fromUserId, toUserId);
+    // Check mutual
+    return await _checkMutualLike(fromUserId, toUserId);
   }
 
-  /// DISLIKE USER
+  // ------------------------------------------------------------
+  // Dislike
+  // ------------------------------------------------------------
   Future<void> dislikeUser(String fromUserId, String toUserId) async {
-    final dislikeId = _firestore.collection(_likesCollection).doc().id;
-
-    final dislike = LikeModel(
-      likeId: dislikeId,
+    final id = _firestore.collection(_likesCollection).doc().id;
+    final model = LikeModel(
+      likeId: id,
       fromUserId: fromUserId,
       toUserId: toUserId,
       action: "dislike",
       createdAt: DateTime.now(),
     );
 
-    await _firestore.collection(_likesCollection).doc(dislikeId).set(dislike.toMap());
+    await _firestore.collection(_likesCollection).doc(id).set(model.toMap());
   }
 
-  /// CHECK MUTUAL
-  Future<void> _checkMutualLike(String userA, String userB) async {
+  // ------------------------------------------------------------
+  // Check mutual
+  // ------------------------------------------------------------
+  Future<MatchResult> _checkMutualLike(String userA, String userB) async {
     final reverse = await _firestore
         .collection(_likesCollection)
-        .where('from_user_id', isEqualTo: userB)
-        .where('to_user_id', isEqualTo: userA)
-        .where('action', isEqualTo: 'like')
+        .where("from_user_id", isEqualTo: userB)
+        .where("to_user_id", isEqualTo: userA)
+        .where("action", isEqualTo: "like")
         .limit(1)
         .get();
 
-    if (reverse.docs.isNotEmpty) {
-      print("🎉 MATCH FOUND!");
-      await _createMatch(userA, userB);
+    if (reverse.docs.isEmpty) {
+      return MatchResult(isMatch: false);
     }
+
+    print("🎉 MATCH FOUND!");
+    await _createMatch(userA, userB);
+    await ChatService().createChatRoom(userA, userB);
+
+    return MatchResult(isMatch: true, matchedUserId: userB);
   }
 
-  /// CREATE MATCH (user1_id – user2_id)
+  // ------------------------------------------------------------
+  // Create match
+  // ------------------------------------------------------------
   Future<void> _createMatch(String userA, String userB) async {
     final exist1 = await _firestore
         .collection(_matchesCollection)
-        .where('user1_id', isEqualTo: userA)
-        .where('user2_id', isEqualTo: userB)
+        .where("user1_id", isEqualTo: userA)
+        .where("user2_id", isEqualTo: userB)
         .limit(1)
         .get();
 
     final exist2 = await _firestore
         .collection(_matchesCollection)
-        .where('user1_id', isEqualTo: userB)
-        .where('user2_id', isEqualTo: userA)
+        .where("user1_id", isEqualTo: userB)
+        .where("user2_id", isEqualTo: userA)
         .limit(1)
         .get();
 
@@ -96,6 +122,7 @@ class LikeService {
     }
 
     final matchId = _firestore.collection(_matchesCollection).doc().id;
+
     final match = MatchModel(
       matchId: matchId,
       user1Id: userA,
@@ -105,10 +132,11 @@ class LikeService {
     );
 
     await _firestore.collection(_matchesCollection).doc(matchId).set(match.toMap());
-    print("🔥 MATCH CREATED: $matchId");
   }
 
-  /// danh sách user mình đã quẹt
+  // ------------------------------------------------------------
+  // Lấy danh sách user đã quẹt
+  // ------------------------------------------------------------
   Future<List<String>> getAllSwipedUsers(String userId) async {
     final snapshot = await _firestore
         .collection(_likesCollection)
@@ -118,38 +146,34 @@ class LikeService {
     return snapshot.docs.map((doc) => doc['to_user_id'] as String).toList();
   }
 
-  /// RESET DỮ LIỆU TEST CHO USER HIỆN TẠI
+  // ------------------------------------------------------------
+  // Reset dữ liệu test
+  // ------------------------------------------------------------
   Future<void> resetUserData(String userId) async {
     WriteBatch batch = _firestore.batch();
 
-    // Xoá toàn bộ likes do user tạo
+    // Xoá likes
     final likes = await _firestore
         .collection(_likesCollection)
         .where('from_user_id', isEqualTo: userId)
         .get();
 
-    for (var doc in likes.docs) {
-      batch.delete(doc.reference);
-    }
+    for (var doc in likes.docs) batch.delete(doc.reference);
 
-    // Xoá match liên quan user
+    // Xoá matches
     final match1 = await _firestore
         .collection(_matchesCollection)
         .where('user1_id', isEqualTo: userId)
         .get();
 
-    for (var doc in match1.docs) {
-      batch.delete(doc.reference);
-    }
+    for (var doc in match1.docs) batch.delete(doc.reference);
 
     final match2 = await _firestore
         .collection(_matchesCollection)
         .where('user2_id', isEqualTo: userId)
         .get();
 
-    for (var doc in match2.docs) {
-      batch.delete(doc.reference);
-    }
+    for (var doc in match2.docs) batch.delete(doc.reference);
 
     await batch.commit();
     print("🧹 Reset dữ liệu test cho user $userId xong.");
